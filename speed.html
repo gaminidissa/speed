@@ -1,143 +1,144 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Speed">
 <title>Speed</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%;
+  body {
+    background: #111;
+    height: 100vh;
+    font-family: -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 40px 24px 24px 24px;
+  }
+  .circle {
+    width: 72vw;
+    height: 72vw;
+    max-width: 320px;
+    max-height: 320px;
+    border-radius: 50%;
     background: #000;
+    border: 6px solid #fff;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-family: -apple-system, 'Helvetica Neue', sans-serif;
-    color: #fff;
-    overflow: hidden;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
   }
-  #speed {
+  .speed {
+    font-size: 24vw;
     font-weight: 900;
-    font-size: clamp(100px, 42vw, 260px);
+    color: #fff;
     line-height: 1;
-    letter-spacing: -3px;
-    transition: opacity 0.3s;
   }
-  #unit {
-    font-weight: 300;
-    font-size: clamp(18px, 7vw, 40px);
-    letter-spacing: 8px;
-    color: rgba(255,255,255,0.35);
-    margin-top: 8px;
+  .unit {
+    font-size: 4.5vw;
+    color: #888;
+    letter-spacing: 4px;
+    margin-top: 4px;
   }
   #pipBtn {
-    margin-top: 48px;
-    padding: 14px 32px;
+    margin-top: 32px;
+    padding: 16px 36px;
     background: transparent;
-    border: 2px solid rgba(255,255,255,0.4);
+    border: 2px solid #fff;
     border-radius: 50px;
-    color: rgba(255,255,255,0.7);
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 500;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
     letter-spacing: 2px;
     cursor: pointer;
+    font-family: -apple-system, sans-serif;
   }
-  #pipBtn.hidden { display: none; }
   #status {
     margin-top: 16px;
     font-size: 13px;
-    color: rgba(255,255,255,0.3);
-    letter-spacing: 1px;
-    text-align: center;
-    padding: 0 24px;
+    color: #666;
     line-height: 1.6;
   }
   #canvas { display: none; }
   #video  { display: none; }
-  .gps-waiting #speed {
-    opacity: 0.25;
-    animation: breathe 2s ease-in-out infinite;
-  }
-  @keyframes breathe {
-    0%,100% { opacity: 0.15; }
-    50%      { opacity: 0.4; }
-  }
 </style>
 </head>
-<body class="gps-waiting" id="body">
-  <div id="speed">—</div>
-  <div id="unit">km/h</div>
+<body>
+  <div class="circle">
+    <div class="speed" id="spd">0</div>
+    <div class="unit">km/h</div>
+  </div>
   <button id="pipBtn" onclick="startPiP()">FLOAT OVER WAZE ▶</button>
-  <div id="status">Tap above once, then open Waze.<br>Speed will float on top.</div>
-  <canvas id="canvas" width="400" height="300"></canvas>
-  <video id="video" playsinline muted loop></video>
+  <div id="status">Tap button, then switch to Waze.<br>Speed floats on top.</div>
+  <canvas id="canvas" width="400" height="400"></canvas>
+  <video id="video" playsinline muted></video>
+
 <script>
-  const speedEl = document.getElementById('speed');
-  const body    = document.getElementById('body');
-  const pipBtn  = document.getElementById('pipBtn');
-  const status  = document.getElementById('status');
-  const canvas  = document.getElementById('canvas');
-  const video   = document.getElementById('video');
-  const ctx     = canvas.getContext('2d');
+  const spdEl  = document.getElementById('spd');
+  const status = document.getElementById('status');
+  const pipBtn = document.getElementById('pipBtn');
+  const canvas = document.getElementById('canvas');
+  const video  = document.getElementById('video');
+  const ctx    = canvas.getContext('2d');
+  let kmh = 0;
 
-  let currentKmh = 0;
-
+  // GPS
   navigator.geolocation.watchPosition(
-    p => {
-      body.classList.remove('gps-waiting');
-      currentKmh = p.coords.speed != null && p.coords.speed >= 0
-        ? Math.round(p.coords.speed * 3.6) : 0;
-      speedEl.textContent = currentKmh;
+    function(p) {
+      kmh = p.coords.speed ? Math.round(p.coords.speed * 3.6) : 0;
+      spdEl.textContent = kmh;
     },
-    () => {
-      body.classList.add('gps-waiting');
-      speedEl.textContent = '—';
-    },
-    { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 }
+    function() {},
+    { enableHighAccuracy: true, maximumAge: 1000 }
   );
 
-  function drawCanvas() {
-    const W = canvas.width, H = canvas.height;
+  // Draw speed into canvas for PiP
+  function draw() {
+    var W = canvas.width, H = canvas.height;
+    // Black background
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#ffffff';
+    // White circle
+    ctx.beginPath();
+    ctx.arc(W/2, H/2, W/2 - 10, 0, Math.PI * 2);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 12;
+    ctx.stroke();
+    // Speed number
+    ctx.fillStyle = '#fff';
     ctx.font = 'bold 180px -apple-system, Helvetica Neue, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(currentKmh, W / 2, H / 2 - 20);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '300 36px -apple-system, Helvetica Neue, sans-serif';
-    ctx.fillText('km/h', W / 2, H / 2 + 110);
+    ctx.fillText(kmh, W/2, H/2 - 20);
+    // km/h label
+    ctx.fillStyle = '#888';
+    ctx.font = '300 40px -apple-system, Helvetica Neue, sans-serif';
+    ctx.fillText('km/h', W/2, H/2 + 110);
   }
 
-  setInterval(drawCanvas, 500);
-  drawCanvas();
+  setInterval(draw, 500);
+  draw();
 
+  // PiP
   async function startPiP() {
-    if (!document.pictureInPictureEnabled) {
-      status.textContent = 'PiP not supported. Use Safari and add to Home Screen first.';
-      return;
-    }
     try {
-      const stream = canvas.captureStream(2);
+      var stream = canvas.captureStream(2);
       video.srcObject = stream;
       await video.play();
       await video.requestPictureInPicture();
-      pipBtn.classList.add('hidden');
-      status.textContent = 'Speed is now floating! Open Waze.';
-      video.addEventListener('leavepictureinpicture', () => {
-        pipBtn.classList.remove('hidden');
-        status.textContent = 'Tap above to float over Waze again.';
+      pipBtn.textContent = 'STOP FLOATING';
+      pipBtn.onclick = function() { document.exitPictureInPicture(); };
+      status.textContent = 'Floating! Open Waze now.';
+      video.addEventListener('leavepictureinpicture', function() {
+        pipBtn.textContent = 'FLOAT OVER WAZE ▶';
+        pipBtn.onclick = startPiP;
+        status.textContent = 'Tap button, then switch to Waze.';
       });
-    } catch (e) {
-      status.textContent = 'Could not start PiP. Open in Safari and add to Home Screen.';
+    } catch(e) {
+      status.textContent = 'PiP failed: ' + e.message;
     }
   }
 </script>
