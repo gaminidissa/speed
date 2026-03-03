@@ -62,8 +62,14 @@
     color: #666;
     line-height: 1.6;
   }
+  /* Video must be visible on iOS for PiP to work - make it tiny */
+  #video {
+    position: fixed;
+    bottom: 0; right: 0;
+    width: 2px; height: 2px;
+    opacity: 0.01;
+  }
   #canvas { display: none; }
-  #video  { display: none; }
 </style>
 </head>
 <body>
@@ -71,8 +77,9 @@
     <div class="speed" id="spd">0</div>
     <div class="unit">km/h</div>
   </div>
-  <button id="pipBtn" onclick="startPiP()">FLOAT OVER WAZE ▶</button>
-  <div id="status">Tap button, then switch to Waze.<br>Speed floats on top.</div>
+  <button id="pipBtn">STEP 1: START VIDEO</button>
+  <div id="status">Tap the button to begin.</div>
+
   <canvas id="canvas" width="400" height="400"></canvas>
   <video id="video" playsinline muted></video>
 
@@ -84,6 +91,7 @@
   const video  = document.getElementById('video');
   const ctx    = canvas.getContext('2d');
   let kmh = 0;
+  let videoReady = false;
 
   // GPS
   navigator.geolocation.watchPosition(
@@ -95,25 +103,21 @@
     { enableHighAccuracy: true, maximumAge: 1000 }
   );
 
-  // Draw speed into canvas for PiP
+  // Draw speed into canvas
   function draw() {
     var W = canvas.width, H = canvas.height;
-    // Black background
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
-    // White circle
     ctx.beginPath();
     ctx.arc(W/2, H/2, W/2 - 10, 0, Math.PI * 2);
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 12;
     ctx.stroke();
-    // Speed number
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 180px -apple-system, Helvetica Neue, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(kmh, W/2, H/2 - 20);
-    // km/h label
     ctx.fillStyle = '#888';
     ctx.font = '300 40px -apple-system, Helvetica Neue, sans-serif';
     ctx.fillText('km/h', W/2, H/2 + 110);
@@ -122,25 +126,38 @@
   setInterval(draw, 500);
   draw();
 
-  // PiP
-  async function startPiP() {
-    try {
+  // Step 1: user tap starts the video (required by iOS before PiP)
+  // Step 2: second tap requests PiP (must also be in user gesture)
+  pipBtn.addEventListener('click', function() {
+    if (!videoReady) {
+      // First tap — start the video stream
       var stream = canvas.captureStream(2);
       video.srcObject = stream;
-      await video.play();
-      await video.requestPictureInPicture();
-      pipBtn.textContent = 'STOP FLOATING';
-      pipBtn.onclick = function() { document.exitPictureInPicture(); };
-      status.textContent = 'Floating! Open Waze now.';
-      video.addEventListener('leavepictureinpicture', function() {
-        pipBtn.textContent = 'FLOAT OVER WAZE ▶';
-        pipBtn.onclick = startPiP;
-        status.textContent = 'Tap button, then switch to Waze.';
+      video.play().then(function() {
+        videoReady = true;
+        pipBtn.textContent = 'STEP 2: FLOAT OVER WAZE ▶';
+        status.textContent = 'Video ready. Now tap again to float.';
+      }).catch(function(e) {
+        status.textContent = 'Video error: ' + e.message;
       });
-    } catch(e) {
-      status.textContent = 'PiP failed: ' + e.message;
+    } else {
+      // Second tap — request PiP inside user gesture
+      video.requestPictureInPicture().then(function() {
+        pipBtn.textContent = 'STOP FLOATING';
+        status.textContent = 'Floating! Open Waze now.';
+        video.addEventListener('leavepictureinpicture', function() {
+          pipBtn.textContent = 'FLOAT OVER WAZE ▶';
+          status.textContent = 'Tap to float again.';
+          videoReady = true;
+        });
+        pipBtn.onclick = function() {
+          document.exitPictureInPicture();
+        };
+      }).catch(function(e) {
+        status.textContent = 'PiP error: ' + e.message;
+      });
     }
-  }
+  });
 </script>
 </body>
 </html>
